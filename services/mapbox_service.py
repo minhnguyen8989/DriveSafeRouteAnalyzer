@@ -24,7 +24,12 @@ def geocode(address, token):
 
     data = response.json()
 
-    feature = data["features"][0]
+    features = data.get("features", [])
+
+    if not features:
+        raise ValueError("Location not found")
+
+    feature = features[0]
 
     longitude, latitude = (
         feature["geometry"]["coordinates"]
