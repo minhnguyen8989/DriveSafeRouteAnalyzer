@@ -12,9 +12,15 @@
     <title>DriveSafe Route Analyzer</title>
 
     <link
+    href="https://api.mapbox.com/mapbox-gl-js/v3.30.0/mapbox-gl.css"
+    rel="stylesheet"
+>
+
+    <link
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css') }}"
     >
+
 </head>
 
 <body>
@@ -76,9 +82,8 @@
         id="loading"
         class="hidden"
     >
-        Analyzing route...
+    Analyzing route...
     </div>
-
 
     <div
         id="error"
@@ -87,56 +92,68 @@
 
 
     <section
-        id="results"
-        class="hidden"
-    >
+    id="results"
+    class="hidden"
+>
 
-        <h2>Route Analysis</h2>
+    <h2>Route Analysis</h2>
 
+    <div class="result-card">
 
-        <div class="result-card">
+        <h3>Overall Risk</h3>
 
-            <h3>Overall Risk</h3>
+        <p
+            id="overall-risk"
+            class="risk"
+        ></p>
 
-            <p
-                id="overall-risk"
-                class="risk"
-            ></p>
+    </div>
 
-        </div>
+    <div class="result-card">
 
+        <h3>Route Information</h3>
 
-        <div class="result-card">
+        <p>
+            <strong>Distance:</strong>
+            <span id="distance"></span>
+        </p>
 
-            <h3>Route Information</h3>
+        <p>
+            <strong>Estimated Duration:</strong>
+            <span id="duration"></span>
+        </p>
 
-            <p>
-                <strong>Distance:</strong>
+    </div>
 
-                <span id="distance"></span>
-            </p>
+    <div class="result-card">
 
-            <p>
-                <strong>Estimated Duration:</strong>
+        <h3>Route Map</h3>
 
-                <span id="duration"></span>
-            </p>
+        <div id="map"></div>
 
-        </div>
+    </div>
 
+    <div class="result-card">
 
-        <div class="result-card">
+        <h3>Weather Along Route</h3>
 
-            <h3>Weather Along Route</h3>
+        <div id="weather-points"></div>
 
-            <div id="weather-points"></div>
+    </div>
 
-        </div>
-
-    </section>
+</section>
 
 </div>
 
+
+<script
+    src="https://api.mapbox.com/mapbox-gl-js/v3.30.0/mapbox-gl.js">
+</script>
+
+<script>
+    window.MAPBOX_PUBLIC_TOKEN =
+        {{ mapbox_public_token | tojson }};
+</script>
 
 <script
     src="{{ url_for('static', filename='app.js') }}">

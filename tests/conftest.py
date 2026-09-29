@@ -12,6 +12,9 @@ def app():
         "MAPBOX_SERVER_TOKEN":
             "fake-mapbox-token",
 
+        "MAPBOX_PUBLIC_TOKEN":
+            "fake-public-mapbox-token",
+
         "OPENWEATHER_API_KEY":
             "fake-openweather-key"
     })

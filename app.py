@@ -50,6 +50,11 @@ def create_app(test_config=None):
         MAPBOX_SERVER_TOKEN=os.getenv(
             "MAPBOX_SERVER_TOKEN"
         ),
+
+        MAPBOX_PUBLIC_TOKEN=os.getenv(
+            "MAPBOX_PUBLIC_TOKEN"
+        ),
+
         OPENWEATHER_API_KEY=os.getenv(
             "OPENWEATHER_API_KEY"
         )
@@ -66,7 +71,10 @@ def create_app(test_config=None):
     @app.get("/")
     def home():
         return render_template(
-            "index.html"
+            "index.html",
+            mapbox_public_token=app.config.get(
+                "MAPBOX_PUBLIC_TOKEN"
+            )
         )
 
     @app.get("/health")

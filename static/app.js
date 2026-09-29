@@ -1,3 +1,36 @@
+mapboxgl.accessToken =
+    window.MAPBOX_PUBLIC_TOKEN;
+
+
+const map = new mapboxgl.Map({
+    container: "map",
+
+    style: "mapbox://styles/mapbox/standard",
+
+    center: [
+        -98.5795,
+        39.8283
+    ],
+
+    zoom: 3
+});
+
+let mapLoaded = false;
+
+map.on(
+    "load",
+    () => {
+        mapLoaded = true;
+    }
+);
+
+map.addControl(
+    new mapboxgl.NavigationControl()
+);
+
+let startMarker = null;
+let destinationMarker = null;
+
 const form =
     document.getElementById("route-form");
 
@@ -147,6 +180,171 @@ function displayResults(data) {
 
     results.classList.remove(
         "hidden"
+    );
+
+    map.resize();
+
+    displayRouteOnMap(
+        data
+    );
+
+}
+
+function displayRouteOnMap(data) {
+
+    if (!mapLoaded) {
+
+    map.once(
+        "load",
+        () => {
+            displayRouteOnMap(data);
+        }
+    );
+
+    return;
+}
+
+    const geometry =
+        data.route.geometry;
+
+    const coordinates =
+        geometry.coordinates;
+
+
+    if (
+        !coordinates ||
+        coordinates.length === 0
+    ) {
+        return;
+    }
+
+
+    const routeGeoJSON = {
+        type: "Feature",
+
+        properties: {},
+
+        geometry: geometry
+    };
+
+
+    // ---------------------------------
+    // Update existing route
+    // or create it the first time
+    // ---------------------------------
+
+    if (map.getSource("route")) {
+
+        map
+            .getSource("route")
+            .setData(routeGeoJSON);
+
+    } else {
+
+        map.addSource(
+            "route",
+            {
+                type: "geojson",
+                data: routeGeoJSON
+            }
+        );
+
+
+        map.addLayer({
+            id: "route-line",
+
+            type: "line",
+
+            source: "route",
+
+            layout: {
+                "line-join": "round",
+                "line-cap": "round"
+            },
+
+            paint: {
+                "line-color": "#2563eb",
+                "line-width": 6
+            }
+        });
+
+    }
+
+
+    // ---------------------------------
+    // Remove previous markers
+    // ---------------------------------
+
+    if (startMarker) {
+        startMarker.remove();
+    }
+
+
+    if (destinationMarker) {
+        destinationMarker.remove();
+    }
+
+
+    // ---------------------------------
+    // Start marker
+    // ---------------------------------
+
+    startMarker =
+        new mapboxgl.Marker({
+            color: "#16a34a"
+        })
+            .setLngLat(
+                coordinates[0]
+            )
+            .addTo(map);
+
+
+    // ---------------------------------
+    // Destination marker
+    // ---------------------------------
+
+    destinationMarker =
+        new mapboxgl.Marker({
+            color: "#dc2626"
+        })
+            .setLngLat(
+                coordinates[
+                    coordinates.length - 1
+                ]
+            )
+            .addTo(map);
+
+
+    // ---------------------------------
+    // Calculate route bounds
+    // ---------------------------------
+
+    const bounds =
+        new mapboxgl.LngLatBounds(
+            coordinates[0],
+            coordinates[0]
+        );
+
+
+    coordinates.forEach(
+        coordinate => {
+            bounds.extend(
+                coordinate
+            );
+        }
+    );
+
+
+    // ---------------------------------
+    // Fit complete route on screen
+    // ---------------------------------
+
+    map.fitBounds(
+        bounds,
+        {
+            padding: 50,
+            duration: 1000
+        }
     );
 
 }
