@@ -3,7 +3,12 @@ import os
 import requests
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import (
+    Flask,
+    jsonify,
+    request,
+    render_template
+)
 
 from services.mapbox_service import (
     geocode,
@@ -57,6 +62,12 @@ def create_app(test_config=None):
     # --------------------------------------------------
     # Health Check
     # --------------------------------------------------
+
+    @app.get("/")
+    def home():
+        return render_template(
+            "index.html"
+        )
 
     @app.get("/health")
     def health():

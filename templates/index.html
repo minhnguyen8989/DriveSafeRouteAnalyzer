@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>DriveSafe Route Analyzer</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>DriveSafe Route Analyzer</h1>
+
+    <p class="description">
+        Analyze weather-related driving conditions
+        along a route using Mapbox and OpenWeather.
+    </p>
+
+    <form id="route-form">
+
+        <div class="form-group">
+
+            <label for="start">
+                Starting Location
+            </label>
+
+            <input
+                type="text"
+                id="start"
+                name="start"
+                placeholder="Houston, TX"
+                required
+            >
+
+        </div>
+
+        <div class="form-group">
+
+            <label for="destination">
+                Destination
+            </label>
+
+            <input
+                type="text"
+                id="destination"
+                name="destination"
+                placeholder="Austin, TX"
+                required
+            >
+
+        </div>
+
+        <button
+            type="submit"
+            id="analyze-button"
+        >
+            Analyze Route
+        </button>
+
+    </form>
+
+
+    <div
+        id="loading"
+        class="hidden"
+    >
+        Analyzing route...
+    </div>
+
+
+    <div
+        id="error"
+        class="error"
+    ></div>
+
+
+    <section
+        id="results"
+        class="hidden"
+    >
+
+        <h2>Route Analysis</h2>
+
+
+        <div class="result-card">
+
+            <h3>Overall Risk</h3>
+
+            <p
+                id="overall-risk"
+                class="risk"
+            ></p>
+
+        </div>
+
+
+        <div class="result-card">
+
+            <h3>Route Information</h3>
+
+            <p>
+                <strong>Distance:</strong>
+
+                <span id="distance"></span>
+            </p>
+
+            <p>
+                <strong>Estimated Duration:</strong>
+
+                <span id="duration"></span>
+            </p>
+
+        </div>
+
+
+        <div class="result-card">
+
+            <h3>Weather Along Route</h3>
+
+            <div id="weather-points"></div>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<script
+    src="{{ url_for('static', filename='app.js') }}">
+</script>
+
+</body>
+
+</html>
