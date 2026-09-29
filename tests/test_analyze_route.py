@@ -1,3 +1,5 @@
+import requests
+
 from services.mapbox_service import (
     MAPBOX_GEOCODING_URL,
     MAPBOX_DIRECTIONS_BASE_URL
@@ -218,3 +220,114 @@ def test_analyze_route(
     ) == 3
 
     assert data["overall_risk"] == "HIGH"
+
+def test_analyze_route_missing_start(client):
+
+    response = client.post(
+        "/api/analyze-route",
+        json={
+            "destination": "Austin, TX"
+        }
+    )
+
+    assert response.status_code == 400
+
+    assert response.get_json() == {
+        "error": "Starting location is required."
+    }
+
+
+def test_analyze_route_missing_destination(client):
+
+    response = client.post(
+        "/api/analyze-route",
+        json={
+            "start": "Houston, TX"
+        }
+    )
+
+    assert response.status_code == 400
+
+    assert response.get_json() == {
+        "error": "Destination is required."
+    }
+
+def test_analyze_route_handles_mapbox_http_error(
+    client,
+    requests_mock
+):
+
+    requests_mock.get(
+        MAPBOX_GEOCODING_URL,
+        status_code=429,
+        json={
+            "message": "Too Many Requests"
+        }
+    )
+
+    response = client.post(
+        "/api/analyze-route",
+        json={
+            "start": "Houston, TX",
+            "destination": "Austin, TX"
+        }
+    )
+
+    assert response.status_code == 502
+
+    assert response.get_json() == {
+        "error": "External API request failed."
+    }
+
+def test_analyze_route_handles_timeout(
+    client,
+    requests_mock
+):
+
+    requests_mock.get(
+        MAPBOX_GEOCODING_URL,
+        exc=requests.exceptions.Timeout
+    )
+
+    response = client.post(
+        "/api/analyze-route",
+        json={
+            "start": "Houston, TX",
+            "destination": "Austin, TX"
+        }
+    )
+
+    assert response.status_code == 504
+
+    assert response.get_json() == {
+        "error":
+            "External API request timed out."
+    }
+
+def test_analyze_route_location_not_found(
+    client,
+    requests_mock
+):
+
+    requests_mock.get(
+        MAPBOX_GEOCODING_URL,
+        json={
+            "type": "FeatureCollection",
+            "features": []
+        },
+        status_code=200
+    )
+
+    response = client.post(
+        "/api/analyze-route",
+        json={
+            "start": "UnknownLocationXYZ",
+            "destination": "Austin, TX"
+        }
+    )
+
+    assert response.status_code == 400
+
+    assert response.get_json() == {
+        "error": "Location not found"
+    }

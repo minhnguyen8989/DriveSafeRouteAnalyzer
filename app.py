@@ -1,12 +1,9 @@
 import os
 
-from dotenv import load_dotenv
+import requests
 
-from flask import (
-    Flask,
-    jsonify,
-    request
-)
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
 
 from services.mapbox_service import (
     geocode,
@@ -26,35 +23,57 @@ from safety.safety_analyzer import (
 )
 
 
+# Load environment variables from .env
 load_dotenv()
 
 
 def create_app(test_config=None):
+    """
+    Flask application factory.
+
+    test_config allows pytest to provide fake API keys
+    without using real credentials.
+    """
 
     app = Flask(__name__)
+
+    # --------------------------------------------------
+    # Application configuration
+    # --------------------------------------------------
 
     app.config.from_mapping(
         MAPBOX_SERVER_TOKEN=os.getenv(
             "MAPBOX_SERVER_TOKEN"
         ),
-
         OPENWEATHER_API_KEY=os.getenv(
             "OPENWEATHER_API_KEY"
         )
     )
 
+    # Override configuration during testing
     if test_config:
         app.config.update(test_config)
 
+    # --------------------------------------------------
+    # Health Check
+    # --------------------------------------------------
+
     @app.get("/health")
     def health():
-
         return jsonify({
             "status": "ok"
         })
 
+    # --------------------------------------------------
+    # Analyze Route API
+    # --------------------------------------------------
+
     @app.post("/api/analyze-route")
     def analyze_route_endpoint():
+
+        # ----------------------------------------------
+        # Read JSON request
+        # ----------------------------------------------
 
         data = request.get_json(
             silent=True
@@ -70,6 +89,10 @@ def create_app(test_config=None):
             .strip()
         )
 
+        # ----------------------------------------------
+        # Validate input
+        # ----------------------------------------------
+
         if not start_address:
             return jsonify({
                 "error":
@@ -82,166 +105,234 @@ def create_app(test_config=None):
                     "Destination is required."
             }), 400
 
-        mapbox_token = app.config[
+        # ----------------------------------------------
+        # Retrieve API credentials
+        # ----------------------------------------------
+
+        mapbox_token = app.config.get(
             "MAPBOX_SERVER_TOKEN"
-        ]
+        )
 
-        weather_key = app.config[
+        weather_key = app.config.get(
             "OPENWEATHER_API_KEY"
-        ]
-
-        # --------------------------------
-        # Geocode starting location
-        # --------------------------------
-
-        start = geocode(
-            start_address,
-            mapbox_token
         )
 
-        # --------------------------------
-        # Geocode destination
-        # --------------------------------
+        try:
 
-        destination = geocode(
-            destination_address,
-            mapbox_token
-        )
+            # ==========================================
+            # STEP 1:
+            # Geocode starting location
+            # ==========================================
 
-        # --------------------------------
-        # Get driving route
-        # --------------------------------
-
-        route = get_route(
-            start_longitude=start[
-                "longitude"
-            ],
-
-            start_latitude=start[
-                "latitude"
-            ],
-
-            end_longitude=destination[
-                "longitude"
-            ],
-
-            end_latitude=destination[
-                "latitude"
-            ],
-
-            token=mapbox_token
-        )
-
-        # --------------------------------
-        # Sample route coordinates
-        # --------------------------------
-
-        route_coordinates = (
-            route[
-                "geometry"
-            ][
-                "coordinates"
-            ]
-        )
-
-        sampled_coordinates = (
-            sample_route_coordinates(
-                route_coordinates,
-                max_points=3
-            )
-        )
-
-        weather_points = []
-
-        # --------------------------------
-        # Analyze weather for each point
-        # --------------------------------
-
-        for longitude, latitude in (
-            sampled_coordinates
-        ):
-
-            weather = get_weather(
-                latitude=latitude,
-                longitude=longitude,
-                api_key=weather_key
+            start = geocode(
+                address=start_address,
+                token=mapbox_token
             )
 
-            safety = analyze_weather(
-                weather
+            # ==========================================
+            # STEP 2:
+            # Geocode destination
+            # ==========================================
+
+            destination = geocode(
+                address=destination_address,
+                token=mapbox_token
             )
 
-            weather_points.append({
-                "latitude": latitude,
-                "longitude": longitude,
+            # ==========================================
+            # STEP 3:
+            # Get route from Mapbox
+            # ==========================================
 
-                "weather": weather,
+            route = get_route(
+                start_longitude=start[
+                    "longitude"
+                ],
+                start_latitude=start[
+                    "latitude"
+                ],
+                end_longitude=destination[
+                    "longitude"
+                ],
+                end_latitude=destination[
+                    "latitude"
+                ],
+                token=mapbox_token
+            )
 
-                "safety": safety
-            })
+            # ==========================================
+            # STEP 4:
+            # Extract route coordinates
+            # ==========================================
 
-        # --------------------------------
-        # Determine highest route risk
-        # --------------------------------
-
-        risk_order = {
-            "LOW": 0,
-            "MODERATE": 1,
-            "HIGH": 2
-        }
-
-        overall_risk = "LOW"
-
-        for point in weather_points:
-
-            point_risk = (
-                point[
-                    "safety"
+            route_coordinates = (
+                route[
+                    "geometry"
                 ][
-                    "risk_level"
+                    "coordinates"
                 ]
             )
 
-            if (
-                risk_order[point_risk]
-                >
-                risk_order[overall_risk]
+            # ==========================================
+            # STEP 5:
+            # Sample route coordinates
+            #
+            # We do not call OpenWeather for every
+            # Mapbox coordinate.
+            #
+            # For now:
+            #     Start
+            #     Middle
+            #     Destination
+            # ==========================================
+
+            sampled_coordinates = (
+                sample_route_coordinates(
+                    route_coordinates,
+                    max_points=3
+                )
+            )
+
+            # ==========================================
+            # STEP 6:
+            # Retrieve weather and perform
+            # safety analysis
+            # ==========================================
+
+            weather_points = []
+
+            for longitude, latitude in (
+                sampled_coordinates
             ):
-                overall_risk = point_risk
 
-        # --------------------------------
-        # Return final result
-        # --------------------------------
+                weather = get_weather(
+                    latitude=latitude,
+                    longitude=longitude,
+                    api_key=weather_key
+                )
 
-        return jsonify({
-            "start": start,
+                safety = analyze_weather(
+                    weather
+                )
 
-            "destination":
-                destination,
+                weather_points.append({
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "weather": weather,
+                    "safety": safety
+                })
 
-            "route": {
-                "distance":
-                    route["distance"],
+            # ==========================================
+            # STEP 7:
+            # Determine highest risk along route
+            # ==========================================
 
-                "duration":
-                    route["duration"],
+            risk_order = {
+                "LOW": 0,
+                "MODERATE": 1,
+                "HIGH": 2
+            }
 
-                "geometry":
-                    route["geometry"]
-            },
+            overall_risk = "LOW"
 
-            "weather_points":
-                weather_points,
+            for point in weather_points:
 
-            "overall_risk":
-                overall_risk
-        })
+                point_risk = (
+                    point[
+                        "safety"
+                    ][
+                        "risk_level"
+                    ]
+                )
+
+                if (
+                    risk_order[point_risk]
+                    >
+                    risk_order[overall_risk]
+                ):
+                    overall_risk = point_risk
+
+            # ==========================================
+            # STEP 8:
+            # Return final API response
+            # ==========================================
+
+            return jsonify({
+                "start": start,
+
+                "destination": destination,
+
+                "route": {
+                    "distance":
+                        route["distance"],
+
+                    "duration":
+                        route["duration"],
+
+                    "geometry":
+                        route["geometry"]
+                },
+
+                "weather_points":
+                    weather_points,
+
+                "overall_risk":
+                    overall_risk
+            }), 200
+
+        # --------------------------------------------------
+        # External API timeout
+        # --------------------------------------------------
+
+        except requests.exceptions.Timeout:
+
+            return jsonify({
+                "error":
+                    "External API request timed out."
+            }), 504
+
+        # --------------------------------------------------
+        # External API HTTP/network failure
+        #
+        # Examples:
+        # 401 Unauthorized
+        # 429 Too Many Requests
+        # 500 Server Error
+        # Network connection failure
+        # --------------------------------------------------
+
+        except requests.exceptions.RequestException:
+
+            return jsonify({
+                "error":
+                    "External API request failed."
+            }), 502
+
+        # --------------------------------------------------
+        # Application/data errors
+        #
+        # Examples:
+        # Mapbox location not found
+        # Mapbox route not found
+        # --------------------------------------------------
+
+        except ValueError as error:
+
+            return jsonify({
+                "error": str(error)
+            }), 400
 
     return app
 
+
+# ------------------------------------------------------
+# Local Development Server
+# ------------------------------------------------------
 
 if __name__ == "__main__":
 
     app = create_app()
 
-    app.run(debug=True)
+    app.run(
+        debug=True
+    )
