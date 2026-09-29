@@ -30,6 +30,7 @@ map.addControl(
 
 let startMarker = null;
 let destinationMarker = null;
+let checkpointMarkers = [];
 
 const form =
     document.getElementById("route-form");
@@ -194,15 +195,16 @@ function displayRouteOnMap(data) {
 
     if (!mapLoaded) {
 
-    map.once(
-        "load",
-        () => {
-            displayRouteOnMap(data);
-        }
-    );
+        map.once(
+            "load",
+            () => {
+                displayRouteOnMap(data);
+            }
+        );
 
-    return;
-}
+        return;
+    }
+
 
     const geometry =
         data.route.geometry;
@@ -221,17 +223,14 @@ function displayRouteOnMap(data) {
 
     const routeGeoJSON = {
         type: "Feature",
-
         properties: {},
-
         geometry: geometry
     };
 
 
-    // ---------------------------------
-    // Update existing route
-    // or create it the first time
-    // ---------------------------------
+    // ==========================================
+    // Draw / update route
+    // ==========================================
 
     if (map.getSource("route")) {
 
@@ -271,23 +270,33 @@ function displayRouteOnMap(data) {
     }
 
 
-    // ---------------------------------
-    // Remove previous markers
-    // ---------------------------------
+    // ==========================================
+    // Remove previous start/destination markers
+    // ==========================================
 
     if (startMarker) {
         startMarker.remove();
     }
-
 
     if (destinationMarker) {
         destinationMarker.remove();
     }
 
 
-    // ---------------------------------
+    // ==========================================
+    // Remove previous checkpoint markers
+    // ==========================================
+
+    checkpointMarkers.forEach(
+        marker => marker.remove()
+    );
+
+    checkpointMarkers = [];
+
+
+    // ==========================================
     // Start marker
-    // ---------------------------------
+    // ==========================================
 
     startMarker =
         new mapboxgl.Marker({
@@ -296,12 +305,18 @@ function displayRouteOnMap(data) {
             .setLngLat(
                 coordinates[0]
             )
+            .setPopup(
+                new mapboxgl.Popup()
+                    .setHTML(
+                        "<strong>Start</strong>"
+                    )
+            )
             .addTo(map);
 
 
-    // ---------------------------------
+    // ==========================================
     // Destination marker
-    // ---------------------------------
+    // ==========================================
 
     destinationMarker =
         new mapboxgl.Marker({
@@ -312,12 +327,69 @@ function displayRouteOnMap(data) {
                     coordinates.length - 1
                 ]
             )
+            .setPopup(
+                new mapboxgl.Popup()
+                    .setHTML(
+                        "<strong>Destination</strong>"
+                    )
+            )
             .addTo(map);
 
 
-    // ---------------------------------
-    // Calculate route bounds
-    // ---------------------------------
+    // ==========================================
+    // Weather checkpoint markers
+    // ==========================================
+
+    data.weather_points.forEach(
+        (point, index) => {
+
+            const marker =
+                new mapboxgl.Marker({
+                    color: "#f59e0b"
+                })
+                    .setLngLat([
+                        point.longitude,
+                        point.latitude
+                    ])
+                    .setPopup(
+                        new mapboxgl.Popup({
+                            offset: 25
+                        })
+                            .setHTML(`
+                                <strong>
+                                    Checkpoint ${index + 1}
+                                </strong>
+
+                                <br>
+
+                                Condition:
+                                ${point.weather.condition}
+
+                                <br>
+
+                                Temperature:
+                                ${point.weather.temperature} °F
+
+                                <br>
+
+                                Risk:
+                                ${point.safety.risk_level}
+                            `)
+                    )
+                    .addTo(map);
+
+
+            checkpointMarkers.push(
+                marker
+            );
+
+        }
+    );
+
+
+    // ==========================================
+    // Fit route to map
+    // ==========================================
 
     const bounds =
         new mapboxgl.LngLatBounds(
@@ -335,18 +407,13 @@ function displayRouteOnMap(data) {
     );
 
 
-    // ---------------------------------
-    // Fit complete route on screen
-    // ---------------------------------
-
     map.fitBounds(
         bounds,
         {
-            padding: 50,
+            padding: 60,
             duration: 1000
         }
     );
-
 }
 
 
@@ -392,7 +459,7 @@ function displayWeatherPoints(
             div.innerHTML = `
 
                 <h4>
-                    Route Point ${index + 1}
+                    Checkpoint ${index + 1}
                 </h4>
 
                 <p>
